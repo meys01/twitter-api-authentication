@@ -1,7 +1,9 @@
 from flask_restplus import Namespace, Resource, fields
 from flask import abort
-from app.models import Tweet
+from app.models import Tweet, User
 from app import db
+from app import login_manager
+from flask_login import login_required
 
 api = Namespace('tweets')
 
@@ -37,6 +39,7 @@ class TweetResource(Resource):
 
     @api.marshal_with(json_tweet, code=200)
     @api.expect(json_new_tweet, validate=True)
+    @login_required
     def patch(self, id):
         tweet = db.session.query(Tweet).get(id)
         if tweet is None:
@@ -45,6 +48,7 @@ class TweetResource(Resource):
             tweet.text = api.payload["text"]
             return tweet
 
+    @login_required
     def delete(self, id):
         tweet = db.session.query(Tweet).get(id)
         if tweet is None:
@@ -53,6 +57,15 @@ class TweetResource(Resource):
             db.session.delete(tweet)
             db.session.commit()
             return None
+    @login_manager.request_loader
+    def load_user_from_request(request):
+    # first, try to login using the api_key url arg
+        api_key = request.args.get('api_key')
+        if api_key:
+            user = User.query.filter_by(api_key=api_key).first()
+            if user:
+                return user
+
 
 @api.route('')
 class TweetsResource(Resource):
